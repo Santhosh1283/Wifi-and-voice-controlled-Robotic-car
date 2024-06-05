@@ -1,0 +1,142 @@
+#include <ESP8266WiFi.h>
+WiFiClient client;
+WiFiServer server(80);
+const char* ssid = "Galaxy A54 5g";
+const char* password = "Sreyas123";
+String  command =""; // Command received from Android device
+
+// Define pin numbers for motor driver inputs and enable pins
+const int in1Pin = 5; // Connect to IN1 on the motor driver
+const int in2Pin = 4; // Connect to IN2 on the motor driver
+const int in3Pin = 0; // Connect to IN3 on the motor driver
+const int in4Pin = 2; // Connect to IN4 on the motor driver
+const int enableAPin = 16; // Connect to ENA on the motor driver (D0)
+const int enableBPin = 14; // Connect to ENB on the motor driver (D5)
+const int defaultSpeed = 100; // Default defaultSpeed value (adjust as needed)
+
+void setup() {
+  Serial.begin(115200);
+  // Initialize motor control pins
+  pinMode(in1Pin, OUTPUT);
+  pinMode(in2Pin, OUTPUT);
+  pinMode(in3Pin, OUTPUT);
+  pinMode(in4Pin, OUTPUT);
+  // Initialize enable pins
+  pinMode(enableAPin, OUTPUT);
+  pinMode(enableBPin, OUTPUT);
+
+  // Set enable pins initially to LOW to stop the motors
+  digitalWrite(enableAPin, LOW);
+  digitalWrite(enableBPin, LOW);
+  digitalWrite(in1Pin,LOW);
+  digitalWrite(in2Pin,LOW);
+  digitalWrite(in3Pin,LOW);
+  digitalWrite(in4Pin,LOW);
+  connectWiFi();
+  server.begin();
+}
+
+void loop() {
+  client = server.available();
+    if (!client) return; 
+    command = checkClient ();
+    if (command == "forward")  moveForward(defaultSpeed);
+    else if (command == "reverse") moveBackward(defaultSpeed);
+    else if (command == "left") moveLeft(defaultSpeed);    
+    else if (command == "right") moveRight(defaultSpeed);     
+    else if (command == "stop") stopMotor();     
+     
+    sendBackEcho(command); // send command echo back to android device
+    command = "";
+}
+
+void moveForward(int defaultSpeed) {
+  digitalWrite(in1Pin, HIGH);
+  digitalWrite(in2Pin, LOW);
+  digitalWrite(in3Pin, HIGH);
+  digitalWrite(in4Pin, LOW);
+  // Enable both motors with PWM defaultSpeed control
+  analogWrite(enableAPin, defaultSpeed); // PWM defaultSpeed control for motor A
+  analogWrite(enableBPin, defaultSpeed); // PWM defaultSpeed control for motor B
+}
+
+void moveBackward(int defaultSpeed) {
+  digitalWrite(in1Pin, LOW);
+  digitalWrite(in2Pin, HIGH);
+  digitalWrite(in3Pin, LOW);
+  digitalWrite(in4Pin, HIGH);
+  // Enable both motors with PWM defaultSpeed control
+  analogWrite(enableAPin, defaultSpeed); // PWM defaultSpeed control for motor A
+  analogWrite(enableBPin, defaultSpeed); // PWM defaultSpeed control for motor B
+}
+
+void moveLeft(int defaultSpeed) {
+  digitalWrite(in1Pin, LOW);
+  digitalWrite(in2Pin, HIGH);
+  digitalWrite(in3Pin, HIGH);
+  digitalWrite(in4Pin, LOW);
+  // Enable both motors with PWM defaultSpeed control
+  analogWrite(enableAPin, defaultSpeed); // PWM defaultSpeed control for motor A
+  analogWrite(enableBPin, defaultSpeed); // PWM defaultSpeed control for motor B
+}
+
+void moveRight(int defaultSpeed) {
+  digitalWrite(in1Pin, HIGH);
+  digitalWrite(in2Pin, LOW);
+  digitalWrite(in3Pin, LOW);
+  digitalWrite(in4Pin, HIGH);
+  // Enable both motors with PWM defaultSpeed control
+  analogWrite(enableAPin, defaultSpeed); // PWM defaultSpeed control for motor A
+  analogWrite(enableBPin, defaultSpeed); // PWM defaultSpeed control for motor B
+}
+void stopMotor(void)   
+{
+  digitalWrite(enableAPin,LOW);
+  digitalWrite(enableBPin,LOW);
+
+  digitalWrite(in1Pin,LOW);
+  digitalWrite(in2Pin,LOW);
+  digitalWrite(in3Pin,LOW);
+  digitalWrite(in4Pin,LOW);
+}
+
+/* connecting WiFi */
+void connectWiFi()
+{
+  Serial.println("Connecting to WIFI");
+  WiFi.begin(ssid, password);
+  while ((!(WiFi.status() == WL_CONNECTED)))
+  {
+    delay(300);
+    Serial.print("..");
+  }
+  Serial.println("");
+  Serial.println("WiFi connected");
+  Serial.println("NodeMCU Local IP is : ");
+  Serial.print((WiFi.localIP()));
+}
+
+/* check command received from Android Device */
+String checkClient (void)
+{
+  while(!client.available()) delay(1); 
+  String request = client.readStringUntil('\r');
+  request.remove(0, 5);
+  request.remove(request.length()-9,9);
+  Serial.println(request);
+  return request;
+}
+
+/* send command echo back to android device */
+void sendBackEcho(String echo)
+{
+  client.println("HTTP/1.1 200 OK");
+  client.println("Content-Type: text/html");
+  client.println("");
+  client.println("<!DOCTYPE HTML>");
+  client.println("<html>");
+  client.println(echo);
+  client.println("</html>");
+  client.stop();
+  delay(1);
+}
